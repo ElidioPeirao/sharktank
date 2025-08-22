@@ -82,17 +82,22 @@
     <!-- Modal de Login/Cadastro -->
     <div id="auth-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-50 opacity-0">
         <div class="modal-container bg-gray-800 w-full max-w-md p-8 rounded-2xl shadow-2xl border border-gray-700 transform scale-95 opacity-0">
-            <div class="flex justify-between items-center mb-2">
-                 <h2 class="text-2xl font-bold text-white text-center">Acessar Desafio</h2>
-                 <button id="close-auth-modal-btn" class="text-gray-400 hover:text-white">&times;</button>
+            <div class="flex justify-between items-start mb-2">
+                 <div class="flex-grow">
+                    <h2 id="auth-title" class="text-2xl font-bold text-white text-center">Entrar no Desafio</h2>
+                    <p id="auth-subtitle" class="text-center text-gray-400 mb-6">Insira seu e-mail para continuar.</p>
+                 </div>
+                 <button id="close-auth-modal-btn" class="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
             </div>
-            <p class="text-center text-gray-400 mb-6">Insira seu e-mail para continuar ou se cadastrar.</p>
             <form id="auth-form">
-                <div class="mb-4"><label for="name" class="block text-gray-300 mb-2">Nome</label><input type="text" id="name" name="name" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Seu nome completo (1º acesso)"></div>
+                <div id="name-field-container" class="mb-4 hidden"><label for="name" class="block text-gray-300 mb-2">Nome</label><input type="text" id="name" name="name" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Seu nome completo"></div>
                 <div class="mb-6"><label for="email" class="block text-gray-300 mb-2">Email</label><input type="email" id="email" name="email" required class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="seu.email@exemplo.com"></div>
-                <button type="submit" id="auth-submit-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-8 rounded-lg text-lg hover:bg-blue-700 transition duration-300">Entrar / Cadastrar</button>
+                <button type="submit" id="auth-submit-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-8 rounded-lg text-lg hover:bg-blue-700 transition duration-300">Entrar</button>
             </form>
              <p id="auth-message" class="text-red-400 text-center mt-4 h-4"></p>
+             <p id="auth-toggle-text" class="text-center text-sm text-gray-400 mt-4">
+                Novo por aqui? <button id="auth-toggle-btn" class="text-blue-400 hover:underline">Cadastre-se</button>
+             </p>
         </div>
     </div>
     
@@ -167,6 +172,23 @@
 
     <!-- Conteúdo Principal Oculto -->
     <div id="main-content" class="hidden">
+        <!-- Tela de Escolha de Grupo -->
+        <main id="group-choice-container" class="hidden min-h-screen flex flex-col items-center justify-center p-6">
+            <div class="group-content bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-2xl p-8 shadow-2xl text-center">
+                <h2 class="text-3xl font-bold text-white">Bem-vindo(a)!</h2>
+                <p class="text-gray-400 mt-2 mb-8">Você ainda não faz parte de um grupo. O que você gostaria de fazer?</p>
+                <div class="flex flex-col md:flex-row gap-4">
+                    <button id="go-to-create-group-btn" class="w-full bg-blue-600 text-white font-bold py-4 px-8 rounded-lg text-lg hover:bg-blue-700 transition duration-300">
+                        Criar um Novo Grupo
+                    </button>
+                    <button id="check-for-invites-btn" class="w-full bg-gray-600 text-white font-bold py-4 px-8 rounded-lg text-lg hover:bg-gray-500 transition duration-300">
+                        Entrar em um Grupo
+                    </button>
+                </div>
+                <p id="group-choice-message" class="text-yellow-400 text-center mt-6 h-4"></p>
+            </div>
+        </main>
+
         <!-- Tela de Criação de Grupo -->
         <main id="group-creation-container" class="hidden min-h-screen flex flex-col items-center justify-center p-6">
             <div class="group-content bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-2xl p-8 shadow-2xl">
@@ -229,6 +251,7 @@
         let currentStepIndex = 0;
         let saveTimeout;
         const ADMIN_EMAIL = 'admin@sharktank.com';
+        let isLoginView = true;
 
         const challengeSteps = [
             { title: '1. Identidade da Empresa', content: 'Com o grupo formado, definam a identidade visual e a mensagem principal da sua startup.', deliverables: [
@@ -264,6 +287,10 @@
             challengePreview: document.getElementById('challenge-preview'),
             mainContent: document.getElementById('main-content'),
             slidesContainer: document.getElementById('challenge-slides-container'),
+            groupChoiceContainer: document.getElementById('group-choice-container'),
+            goToCreateGroupBtn: document.getElementById('go-to-create-group-btn'),
+            checkForInvitesBtn: document.getElementById('check-for-invites-btn'),
+            groupChoiceMessage: document.getElementById('group-choice-message'),
             groupCreationContainer: document.getElementById('group-creation-container'),
             groupCreationForm: document.getElementById('group-creation-form'),
             memberInputsContainer: document.getElementById('member-inputs-container'),
@@ -284,10 +311,15 @@
             modalContentContainer: document.getElementById('modal-content-container'),
             closeDetailsModalBtn: document.getElementById('close-details-modal-btn'),
             closeAuthModalBtn: document.getElementById('close-auth-modal-btn'),
+            authTitle: document.getElementById('auth-title'),
+            authSubtitle: document.getElementById('auth-subtitle'),
+            nameFieldContainer: document.getElementById('name-field-container'),
+            authToggleText: document.getElementById('auth-toggle-text'),
+            authToggleBtn: document.getElementById('auth-toggle-btn'),
         };
 
         function switchView(view) {
-            ['heroSection', 'challengePreview', 'groupCreationContainer', 'slidesContainer', 'adminDashboard'].forEach(v => DOM[v].classList.add('hidden'));
+            ['heroSection', 'challengePreview', 'groupChoiceContainer', 'groupCreationContainer', 'slidesContainer', 'adminDashboard'].forEach(v => DOM[v].classList.add('hidden'));
             
             if (view === 'login') {
                 DOM.heroSection.classList.remove('hidden');
@@ -309,6 +341,27 @@
                 container.classList.add('scale-95', 'opacity-0');
                 setTimeout(() => modal.classList.add('hidden'), 300);
             }
+        }
+
+        function updateAuthView() {
+            if (isLoginView) {
+                DOM.authTitle.textContent = 'Entrar no Desafio';
+                DOM.authSubtitle.textContent = 'Insira seu e-mail para continuar.';
+                DOM.nameFieldContainer.classList.add('hidden');
+                DOM.authSubmitBtn.textContent = 'Entrar';
+                DOM.authToggleText.innerHTML = `Novo por aqui? <button id="auth-toggle-btn" class="text-blue-400 hover:underline">Cadastre-se</button>`;
+            } else {
+                DOM.authTitle.textContent = 'Criar Conta';
+                DOM.authSubtitle.textContent = 'Preencha seus dados para começar.';
+                DOM.nameFieldContainer.classList.remove('hidden');
+                DOM.authSubmitBtn.textContent = 'Cadastrar';
+                DOM.authToggleText.innerHTML = `Já tem uma conta? <button id="auth-toggle-btn" class="text-blue-400 hover:underline">Entre</button>`;
+            }
+            // Re-attach listener to the new button
+            document.getElementById('auth-toggle-btn').addEventListener('click', () => {
+                isLoginView = !isLoginView;
+                updateAuthView();
+            });
         }
 
         function renderCurrentSlide() {
@@ -474,6 +527,29 @@
                 renderCurrentSlide();
             } else { logout(); }
         }
+        
+        async function checkForAndJoinGroup(studentId, studentData) {
+            const q = query(groupsCollection, where("pendingInvites", "array-contains", studentData.email));
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                const groupDoc = querySnapshot.docs[0];
+                const groupId = groupDoc.id;
+                await runTransaction(db, async (transaction) => {
+                    const groupRef = doc(db, "groups", groupId);
+                    const studentRef = doc(db, "students", studentId);
+                    const freshGroupDoc = await transaction.get(groupRef);
+                    if (!freshGroupDoc.exists()) { throw "Error: Group does not exist!"; }
+                    const groupData = freshGroupDoc.data();
+                    const newPendingInvites = groupData.pendingInvites.filter(email => email !== studentData.email);
+                    const newMembers = [...groupData.members, { studentId, email: studentData.email, name: studentData.name }];
+                    transaction.update(groupRef, { pendingInvites: newPendingInvites, members: newMembers });
+                    transaction.update(studentRef, { groupId: groupId });
+                });
+                await loadGroupAndStart(groupId);
+                return true;
+            }
+            return false;
+        }
 
         async function handleUserSession(studentId, studentData) {
             currentStudentId = studentId;
@@ -491,25 +567,9 @@
             if (studentData.groupId) {
                 await loadGroupAndStart(studentData.groupId);
             } else {
-                const q = query(groupsCollection, where("pendingInvites", "array-contains", studentData.email));
-                const querySnapshot = await getDocs(q);
-                if (!querySnapshot.empty) {
-                    const groupDoc = querySnapshot.docs[0];
-                    const groupId = groupDoc.id;
-                    await runTransaction(db, async (transaction) => {
-                        const groupRef = doc(db, "groups", groupId);
-                        const studentRef = doc(db, "students", studentId);
-                        const freshGroupDoc = await transaction.get(groupRef);
-                        if (!freshGroupDoc.exists()) { throw "Error: Group does not exist!"; }
-                        const groupData = freshGroupDoc.data();
-                        const newPendingInvites = groupData.pendingInvites.filter(email => email !== studentData.email);
-                        const newMembers = [...groupData.members, { studentId, email: studentData.email, name: studentData.name }];
-                        transaction.update(groupRef, { pendingInvites: newPendingInvites, members: newMembers });
-                        transaction.update(studentRef, { groupId: groupId });
-                    });
-                    await loadGroupAndStart(groupId);
-                } else {
-                    switchView('groupCreationContainer');
+                const joined = await checkForAndJoinGroup(studentId, studentData);
+                if (!joined) {
+                    switchView('groupChoiceContainer');
                 }
             }
         }
@@ -633,6 +693,37 @@
             DOM.modalContentContainer.innerHTML = contentHTML;
             toggleModal(DOM.groupDetailsModal, true);
         }
+        
+        async function validateInvites(emails) {
+            if (emails.length === 0) return { success: true };
+            
+            const q = query(studentsCollection, where("email", "in", emails));
+            const querySnapshot = await getDocs(q);
+
+            const foundEmails = new Set();
+            const usersInGroup = [];
+
+            querySnapshot.forEach(doc => {
+                const student = doc.data();
+                foundEmails.add(student.email);
+                if (student.groupId) {
+                    usersInGroup.push(student.email);
+                }
+            });
+
+            const nonExistentEmails = emails.filter(email => !foundEmails.has(email));
+
+            if (nonExistentEmails.length > 0) {
+                return { success: false, message: `Usuário(s) não encontrado(s): ${nonExistentEmails.join(', ')}` };
+            }
+
+            if (usersInGroup.length > 0) {
+                return { success: false, message: `Usuário(s) já em um grupo: ${usersInGroup.join(', ')}` };
+            }
+
+            return { success: true };
+        }
+
 
         DOM.addMemberBtn.addEventListener('click', createMemberInput);
 
@@ -643,6 +734,14 @@
                 .map(input => input.value.trim().toLowerCase()).filter(Boolean);
             if (1 + memberEmails.length < 3 || 1 + memberEmails.length > 5) { DOM.groupMessage.textContent = "O grupo deve ter de 3 a 5 membros."; return; }
             if (new Set(memberEmails).size !== memberEmails.length) { DOM.groupMessage.textContent = "Não adicione e-mails repetidos."; return; }
+            
+            DOM.groupMessage.textContent = "Validando membros...";
+            const validation = await validateInvites(memberEmails);
+            if (!validation.success) {
+                DOM.groupMessage.textContent = validation.message;
+                return;
+            }
+
             DOM.groupMessage.textContent = "";
 
             try {
@@ -664,19 +763,35 @@
             }
         });
 
-        DOM.startBtn.addEventListener('click', () => currentStudentId ? handleUserSession(currentStudentId, currentStudentData) : toggleModal(DOM.authModal, true));
+        DOM.startBtn.addEventListener('click', () => {
+            isLoginView = true;
+            updateAuthView();
+            toggleModal(DOM.authModal, true);
+        });
         DOM.logoutBtn.addEventListener('click', logout);
         DOM.closeDetailsModalBtn.addEventListener('click', () => toggleModal(DOM.groupDetailsModal, false));
         DOM.closeAuthModalBtn.addEventListener('click', () => toggleModal(DOM.authModal, false));
         DOM.authForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            loginOrRegister(e.target.name.value.trim(), e.target.email.value.trim().toLowerCase());
+            if (isLoginView) {
+                loginOrRegister(null, e.target.email.value.trim().toLowerCase());
+            } else {
+                loginOrRegister(e.target.name.value.trim(), e.target.email.value.trim().toLowerCase());
+            }
+        });
+        DOM.goToCreateGroupBtn.addEventListener('click', () => switchView('groupCreationContainer'));
+        DOM.checkForInvitesBtn.addEventListener('click', async () => {
+            const joined = await checkForAndJoinGroup(currentStudentId, currentStudentData);
+            if (!joined) {
+                DOM.groupChoiceMessage.textContent = `Nenhum convite para ${currentStudentData.email}. Peça para o líder do grupo reenviar.`;
+            }
         });
 
         // --- Inicialização ---
         createMemberInput();
         createMemberInput();
         checkSession();
+        updateAuthView();
     </script>
 </body>
 </html>
