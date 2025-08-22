@@ -219,7 +219,7 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, addDoc, query, where, getDocs, doc, updateDoc, getDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, getDocs, doc, updateDoc, getDoc, runTransaction, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyD4Zjy-GMPlEOnnZxXOkxN2aibDUKHv0aM",
@@ -252,6 +252,7 @@
         let saveTimeout;
         const ADMIN_EMAIL = 'admin@sharktank.com';
         let isLoginView = true;
+        let groupListenerUnsubscribe = null;
 
         const challengeSteps = [
             { title: '1. Identidade da Empresa', content: 'Com o grupo formado, definam a identidade visual e a mensagem principal da sua startup.', deliverables: [
@@ -465,7 +466,7 @@
                 
                 const groupDocRef = doc(db, "groups", currentGroupId);
                 try {
-                    await updateDoc(groupDocRef, { deliverables: currentGroupData.deliverables });
+                    await updateDoc(groupDocRef, { [`deliverables.${currentStepIndex}`]: dataToSave });
                     statusEl.textContent = 'Salvo!';
                     checkDeliverablesCompletion();
                 } catch (error) {
@@ -506,26 +507,61 @@
         }
         
         async function updateProgress(stepIndex, isCompleted) {
-            currentGroupData.progress[stepIndex] = isCompleted;
             const groupDocRef = doc(db, "groups", currentGroupId);
             try {
-                await updateDoc(groupDocRef, { progress: currentGroupData.progress });
-                renderCurrentSlide();
+                await updateDoc(groupDocRef, { [`progress.${stepIndex}`]: isCompleted });
             } catch (error) { console.error("Erro ao atualizar progresso: ", error); }
         }
 
-        async function loadGroupAndStart(groupId) {
-            const groupDocRef = doc(db, "groups", groupId);
-            const groupDoc = await getDoc(groupDocRef);
-            if (groupDoc.exists()) {
-                currentGroupId = groupId;
-                currentGroupData = groupDoc.data();
-                DOM.groupNameDisplay.textContent = `Startup: ${currentGroupData.name}`;
-                currentStepIndex = currentGroupData.progress.findIndex(p => p === false);
-                if (currentStepIndex === -1) currentStepIndex = 0;
-                switchView('slidesContainer');
+        function updateSlideUI(updatedGroupData) {
+            if (DOM.slidesContainer.classList.contains('hidden')) return;
+            
+            const oldProgress = JSON.stringify(currentGroupData.progress);
+            const newProgress = JSON.stringify(updatedGroupData.progress);
+            
+            currentGroupData = updatedGroupData;
+
+            if (oldProgress !== newProgress) {
                 renderCurrentSlide();
-            } else { logout(); }
+                return;
+            }
+
+            const form = document.getElementById('deliverables-form');
+            if (form) {
+                const stepDeliverablesData = updatedGroupData.deliverables?.[currentStepIndex] || {};
+                form.querySelectorAll('input, textarea').forEach(input => {
+                    if (document.activeElement !== input) {
+                        input.value = stepDeliverablesData[input.dataset.id] || '';
+                    }
+                });
+            }
+            checkDeliverablesCompletion();
+        }
+
+        async function loadGroupAndStart(groupId) {
+            if (groupListenerUnsubscribe) groupListenerUnsubscribe();
+            
+            const groupDocRef = doc(db, "groups", groupId);
+            groupListenerUnsubscribe = onSnapshot(groupDocRef, (doc) => {
+                if (doc.exists()) {
+                    const isFirstLoad = !currentGroupData;
+                    const updatedData = doc.data();
+                    
+                    if (isFirstLoad) {
+                        currentGroupId = groupId;
+                        currentGroupData = updatedData;
+                        DOM.groupNameDisplay.textContent = `Startup: ${currentGroupData.name}`;
+                        currentStepIndex = currentGroupData.progress.findIndex(p => p === false);
+                        if (currentStepIndex === -1) currentStepIndex = 0;
+                        switchView('slidesContainer');
+                        renderCurrentSlide();
+                    } else {
+                        updateSlideUI(updatedData);
+                    }
+                } else {
+                    logout();
+                }
+            });
         }
         
         async function checkForAndJoinGroup(studentId, studentData) {
@@ -567,10 +603,7 @@
             if (studentData.groupId) {
                 await loadGroupAndStart(studentData.groupId);
             } else {
-                const joined = await checkForAndJoinGroup(studentId, studentData);
-                if (!joined) {
-                    switchView('groupChoiceContainer');
-                }
+                switchView('groupChoiceContainer');
             }
         }
 
@@ -597,7 +630,8 @@
         }
 
         function logout() {
-            [currentStudentId, currentStudentData, currentGroupId, currentGroupData] = [null, null, null, null];
+            if (groupListenerUnsubscribe) groupListenerUnsubscribe();
+            [currentStudentId, currentStudentData, currentGroupId, currentGroupData, groupListenerUnsubscribe] = [null, null, null, null, null];
             localStorage.removeItem('studentId');
             DOM.userInfo.classList.add('hidden');
             switchView('login');
