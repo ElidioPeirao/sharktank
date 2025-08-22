@@ -1,1 +1,682 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desafio Shark Tank de Automação</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+        .hero-bg {
+            background: linear-gradient(135deg, rgba(17, 24, 39, 0.95), rgba(55, 65, 81, 0.95)), url('https://placehold.co/1920x1080/111827/ffffff?text=Inova%C3%A7%C3%A3o') center center/cover no-repeat;
+        }
+        .modal-overlay, .main-content {
+            transition: opacity 0.5s ease-in-out;
+        }
+        .modal-container {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        .slide-content, .group-content {
+            animation: fadeIn 0.7s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .nav-button:disabled, .complete-checkbox:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .remove-member-btn {
+            display: none;
+        }
+        #member-inputs-container:not(:first-child) .remove-member-btn {
+            display: inline-flex;
+        }
+        .step-nav-item {
+            transition: all 0.3s ease;
+        }
+        .step-nav-item.locked {
+            cursor: not-allowed;
+        }
+        .step-nav-item:not(.locked):hover {
+            transform: translateY(-4px);
+        }
+        .form-input {
+            background-color: #374151; /* gray-700 */
+            border: 1px solid #4b5563; /* gray-600 */
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: white;
+            width: 100%;
+        }
+        .form-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px #3b82f6; /* blue-500 */
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 12px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937; /* bg-gray-800 */
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: #4b5563; /* bg-gray-600 */
+            border-radius: 20px;
+            border: 3px solid #1f2937; /* bg-gray-800 */
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #6b7280; /* bg-gray-500 */
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200">
 
+    <!-- Modal de Login/Cadastro -->
+    <div id="auth-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-50 opacity-0">
+        <div class="modal-container bg-gray-800 w-full max-w-md p-8 rounded-2xl shadow-2xl border border-gray-700 transform scale-95 opacity-0">
+            <div class="flex justify-between items-center mb-2">
+                 <h2 class="text-2xl font-bold text-white text-center">Acessar Desafio</h2>
+                 <button id="close-auth-modal-btn" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            <p class="text-center text-gray-400 mb-6">Insira seu e-mail para continuar ou se cadastrar.</p>
+            <form id="auth-form">
+                <div class="mb-4"><label for="name" class="block text-gray-300 mb-2">Nome</label><input type="text" id="name" name="name" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Seu nome completo (1º acesso)"></div>
+                <div class="mb-6"><label for="email" class="block text-gray-300 mb-2">Email</label><input type="email" id="email" name="email" required class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="seu.email@exemplo.com"></div>
+                <button type="submit" id="auth-submit-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-8 rounded-lg text-lg hover:bg-blue-700 transition duration-300">Entrar / Cadastrar</button>
+            </form>
+             <p id="auth-message" class="text-red-400 text-center mt-4 h-4"></p>
+        </div>
+    </div>
+    
+    <!-- Modal de Detalhes do Grupo (Admin) -->
+    <div id="group-details-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-50 opacity-0">
+        <div class="modal-container bg-gray-800 w-full max-w-3xl p-8 rounded-2xl shadow-2xl border border-gray-700 transform scale-95 opacity-0 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="modal-group-name" class="text-2xl font-bold text-white"></h2>
+                <button id="close-details-modal-btn" class="text-gray-400 hover:text-white text-3xl">&times;</button>
+            </div>
+            <div id="modal-content-container"></div>
+        </div>
+    </div>
+
+
+    <!-- User Info Flutuante -->
+    <div id="user-info" class="absolute top-4 right-4 bg-gray-800 bg-opacity-80 backdrop-blur-sm p-3 rounded-lg text-right hidden z-40 shadow-lg border border-gray-700">
+        <p class="font-semibold text-white">Olá, <span id="user-name"></span>!</p>
+        <p class="text-sm text-blue-400 font-medium" id="group-name-display"></p>
+        <button id="logout-btn" class="text-xs text-gray-400 hover:underline mt-1">Sair</button>
+    </div>
+
+    <!-- Hero Section -->
+    <header id="hero-section" class="hero-bg min-h-screen flex flex-col items-center justify-center text-center p-6">
+        <div class="bg-black bg-opacity-40 p-8 rounded-2xl shadow-2xl">
+            <h1 class="text-4xl md:text-6xl font-black text-white uppercase tracking-wider">Desafio <span class="text-blue-400">Shark Tank</span> de Automação</h1>
+            <p class="mt-4 text-lg md:text-xl text-gray-300 max-w-3xl mx-auto">Transforme ideias em realidade. Crie sua startup, desenvolva um produto inovador e convença os tubarões!</p>
+            <button id="start-challenge-btn" class="mt-8 inline-block bg-blue-600 text-white font-bold py-3 px-8 rounded-full text-lg hover:bg-blue-700 transition-transform transform hover:scale-105 duration-300">Começar o Desafio</button>
+        </div>
+    </header>
+
+    <!-- Nova Seção Temática -->
+    <section id="challenge-preview" class="relative bg-gray-800 py-20 text-white">
+        <!-- Divisor de onda SVG -->
+        <div class="absolute top-0 left-0 w-full overflow-hidden leading-none">
+            <svg data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none" class="relative block w-full h-[75px]">
+                <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z" class="fill-gray-900"></path>
+            </svg>
+        </div>
+
+        <div class="container mx-auto px-6 text-center pt-12">
+            <h2 class="text-4xl font-black text-white mb-4 flex items-center justify-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-blue-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10,0,0,0,2,12c0,4.42,2.87,8.17,6.84,9.5c-1.23-2.34-1.57-5.05-0.8-7.5C9.37,12.22,11.33,11,12,11 c0.3,0,1.08,0.19,1.08,0.19C14.71,10.27,16,8.24,16,6c0-2.21-1.79-4-4-4S8,3.79,8,6c0,1.38,0.72,2.59,1.79,3.24 C8.6,10.36,8,11.7,8,13c0,2.21,1.79,4,4,4c0.42,0,0.82-0.07,1.2-0.19c0.51,1.6,1.42,3.04,2.65,4.14C17.5,21.54,19.63,22,22,22 c0-5.52-4.48-10-10-10S2,16.48,2,22H12c-4.42,0-8-2.87-9.5-6.84C3.17,13.95,4,12.85,4,12c0-2.61,1.91-4.77,4.39-5.16 C7.53,6.31,6.85,5.7,6.85,4.75C6.85,3.23,8.08,2,9.6,2c1.8,0,3.03,1.5,3.4,2c0,0,0.23-0.03,0.23-0.03c0,0,0.4-0.16,0.76-0.16 c2.21,0,4,1.79,4,4c0,2.24-1.29,4.27-3.08,5.19C14.92,13.08,15,13.5,15,14c0,1.3-0.6,2.47-1.52,3.24C14.34,18.41,15,19.65,15,21 c0,0.48-0.06,0.95-0.16,1.4C18.05,21.13,21.17,18.42,22,15C21.33,10.45,17.17,7,12,7s-9.33,3.45-10,8c0.67,4.55,4.83,8,10,8 s9.33-3.45,10-8C21.33,10.45,17.17,7,12,7z"/></svg>
+                Prepare-se para Mergulhar
+            </h2>
+            <p class="text-lg text-gray-300 max-w-3xl mx-auto mb-12">
+                Este não é um trabalho comum. É uma simulação real onde vocês se tornarão empreendedores, enfrentarão desafios e nadarão com os "tubarões".
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 text-left">
+                <!-- O Desafio -->
+                <div class="bg-gray-900 p-8 rounded-xl border border-gray-700">
+                    <h3 class="text-2xl font-bold text-blue-400 mb-4">O Desafio</h3>
+                    <p class="text-gray-300 leading-relaxed">
+                        Vocês vão criar uma startup do zero, desenvolver um produto de automação inovador usando Arduino e impressão 3D, e defender sua ideia em uma apresentação de alto impacto, inspirada no Shark Tank. É a sua chance de transformar um conceito em um negócio viável.
+                    </p>
+                </div>
+
+                <!-- As Entregas -->
+                <div class="bg-gray-900 p-8 rounded-xl border border-gray-700">
+                    <h3 class="text-2xl font-bold text-blue-400 mb-4">As Entregas Principais</h3>
+                    <ul class="space-y-3 text-gray-300">
+                        <li class="flex items-start"><span class="text-blue-500 mr-3 mt-1">&#10003;</span> <span><strong>Identidade da Startup:</strong> Nome, logo e slogan que capturem a essência do seu projeto.</span></li>
+                        <li class="flex items-start"><span class="text-blue-500 mr-3 mt-1">&#10003;</span> <span><strong>Plano de Negócios:</strong> Detalhamento de custos, preço de venda e público-alvo.</span></li>
+                        <li class="flex items-start"><span class="text-blue-500 mr-3 mt-1">&#10003;</span> <span><strong>Pitch de Vendas:</strong> Um vídeo curto e impactante para "vender" sua ideia.</span></li>
+                        <li class="flex items-start"><span class="text-blue-500 mr-3 mt-1">&#10003;</span> <span><strong>Relatório Final:</strong> Documentação completa do projeto seguindo as normas ABNT.</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Conteúdo Principal Oculto -->
+    <div id="main-content" class="hidden">
+        <!-- Tela de Criação de Grupo -->
+        <main id="group-creation-container" class="hidden min-h-screen flex flex-col items-center justify-center p-6">
+            <div class="group-content bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-2xl p-8 shadow-2xl">
+                <div class="text-center"><h2 class="text-3xl font-bold text-white">Crie sua Startup</h2><p class="text-gray-400 mt-2">O primeiro passo é formar seu grupo. Defina o nome da sua startup e convide seus colegas.</p></div>
+                <form id="group-creation-form" class="mt-8 space-y-6">
+                    <div><label for="startup-name" class="block text-gray-300 mb-2 font-semibold">Nome da Startup</label><input type="text" id="startup-name" required class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ex: InovaTech Solutions"></div>
+                    <div><label class="block text-gray-300 mb-2 font-semibold">Membros do Grupo (mín. 3, máx. 5)</label><div id="member-inputs-container" class="space-y-3"></div><button type="button" id="add-member-btn" class="mt-3 text-blue-400 hover:text-blue-300 font-semibold">+ Adicionar membro</button></div>
+                    <p id="group-message" class="text-red-400 text-center h-4"></p>
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-8 rounded-lg text-lg hover:bg-blue-700 transition duration-300">Criar Grupo e Iniciar Desafio</button>
+                </form>
+            </div>
+        </main>
+
+        <!-- Conteúdo dos Slides -->
+        <main id="challenge-slides-container" class="hidden min-h-screen flex flex-col items-center justify-center p-6">
+            <!-- O conteúdo do slide será injetado aqui -->
+        </main>
+        
+        <!-- Painel do Admin -->
+        <main id="admin-dashboard" class="hidden min-h-screen container mx-auto p-6">
+             <h1 class="text-4xl font-bold text-white mb-8">Painel do Administrador</h1>
+             <div id="admin-groups-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 <!-- Cards dos grupos serão injetados aqui -->
+             </div>
+        </main>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, where, getDocs, doc, updateDoc, getDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyD4Zjy-GMPlEOnnZxXOkxN2aibDUKHv0aM",
+            authDomain: "dev-sharktank.firebaseapp.com",
+            projectId: "dev-sharktank",
+            storageBucket: "dev-sharktank.appspot.com",
+            messagingSenderId: "1043408891085",
+            appId: "1:1043408891085:web:1bf828d2b5e2f51bf9cd84",
+            measurementId: "G-QBGYEM9N3G"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // Bloquear acesso ao código fonte
+        document.addEventListener('contextmenu', event => event.preventDefault());
+        document.addEventListener('keydown', e => {
+            if (e.keyCode === 123 || // F12
+                (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) || // Ctrl+Shift+I/J
+                (e.ctrlKey && e.keyCode === 85)) { // Ctrl+U
+                e.preventDefault();
+            }
+        });
+
+        const studentsCollection = collection(db, "students");
+        const groupsCollection = collection(db, "groups");
+
+        let currentStudentId, currentStudentData, currentGroupId, currentGroupData;
+        let currentStepIndex = 0;
+        let saveTimeout;
+        const ADMIN_EMAIL = 'admin@sharktank.com';
+
+        const challengeSteps = [
+            { title: '1. Identidade da Empresa', content: 'Com o grupo formado, definam a identidade visual e a mensagem principal da sua startup.', deliverables: [
+                { id: 'startupName', label: 'Nome da Empresa', type: 'text', required: true },
+                { id: 'logoLink', label: 'Link da Logo', type: 'url', required: true },
+                { id: 'slogan', label: 'Slogan', type: 'textarea', required: true },
+            ]},
+            { title: '2. Definição do Produto', content: 'Detalhem a solução que vocês estão criando, o problema que ela resolve e os componentes necessários.', deliverables: [
+                { id: 'productName', label: 'Nome do Produto', type: 'text', required: true },
+                { id: 'problem', label: 'Problema que Resolve', type: 'textarea', required: true },
+                { id: 'description', label: 'Descrição de Como Funciona', type: 'textarea', required: true },
+                { id: 'materialsList', label: 'Lista de Materiais Incial', type: 'textarea', required: true },
+            ]},
+            { title: '3. Desenvolvimento do Protótipo', content: 'Mãos à obra! Montem o circuito, programem o microcontrolador e imprimam as peças 3D. Esta etapa é prática e não possui entregáveis no sistema.' },
+            { title: '4. Planejamento de Custos', content: 'Detalhem o plano de negócios e a viabilidade financeira do seu produto.', deliverables: [
+                { id: 'materialsCost', label: 'Lista de Materiais com Valor', type: 'textarea', required: true },
+                { id: 'productionCost', label: 'Custo de Produção (R$)', type: 'number', required: true },
+                { id: 'sellPrice', label: 'Preço de Venda (R$)', type: 'number', required: true },
+                { id: 'targetAudience', label: 'Público Alvo', type: 'text', required: true },
+            ]},
+            { title: '5. Pitch de Vendas', content: 'Preparem a apresentação para os "tubarões". O pitch deve ser convincente e demonstrar o potencial do seu negócio.', deliverables: [
+                { id: 'pitchLink', label: 'Link do Pitch (gravado, até 3 min)', type: 'url', required: true },
+                { id: 'canvasLink', label: 'Link do Canvas Business Model', type: 'url', required: true },
+            ]},
+            { title: '6. Entrega Final', content: 'Consolidem toda a documentação do projeto em um relatório final bem estruturado.', deliverables: [
+                { id: 'reportLink', label: 'Link do Relatório (seguindo a ABNT)', type: 'url', required: true },
+            ]}
+        ];
+
+        const DOM = {
+            startBtn: document.getElementById('start-challenge-btn'),
+            heroSection: document.getElementById('hero-section'),
+            challengePreview: document.getElementById('challenge-preview'),
+            mainContent: document.getElementById('main-content'),
+            slidesContainer: document.getElementById('challenge-slides-container'),
+            groupCreationContainer: document.getElementById('group-creation-container'),
+            groupCreationForm: document.getElementById('group-creation-form'),
+            memberInputsContainer: document.getElementById('member-inputs-container'),
+            addMemberBtn: document.getElementById('add-member-btn'),
+            groupMessage: document.getElementById('group-message'),
+            authModal: document.getElementById('auth-modal'),
+            authForm: document.getElementById('auth-form'),
+            authSubmitBtn: document.getElementById('auth-submit-btn'),
+            authMessage: document.getElementById('auth-message'),
+            userInfo: document.getElementById('user-info'),
+            userNameEl: document.getElementById('user-name'),
+            groupNameDisplay: document.getElementById('group-name-display'),
+            logoutBtn: document.getElementById('logout-btn'),
+            adminDashboard: document.getElementById('admin-dashboard'),
+            adminGroupsList: document.getElementById('admin-groups-list'),
+            groupDetailsModal: document.getElementById('group-details-modal'),
+            modalGroupName: document.getElementById('modal-group-name'),
+            modalContentContainer: document.getElementById('modal-content-container'),
+            closeDetailsModalBtn: document.getElementById('close-details-modal-btn'),
+            closeAuthModalBtn: document.getElementById('close-auth-modal-btn'),
+        };
+
+        function switchView(view) {
+            ['heroSection', 'challengePreview', 'groupCreationContainer', 'slidesContainer', 'adminDashboard'].forEach(v => DOM[v].classList.add('hidden'));
+            
+            if (view === 'login') {
+                DOM.heroSection.classList.remove('hidden');
+                DOM.challengePreview.classList.remove('hidden');
+                DOM.mainContent.classList.add('hidden');
+            } else {
+                DOM.mainContent.classList.remove('hidden');
+                if (DOM[view]) DOM[view].classList.remove('hidden');
+            }
+        }
+
+        function toggleModal(modal, show) {
+            const container = modal.querySelector('.modal-container');
+            if (show) {
+                modal.classList.remove('hidden');
+                setTimeout(() => { modal.classList.remove('opacity-0'); container.classList.remove('scale-95', 'opacity-0'); }, 10);
+            } else {
+                modal.classList.add('opacity-0');
+                container.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            }
+        }
+
+        function renderCurrentSlide() {
+            DOM.slidesContainer.innerHTML = '';
+            const step = challengeSteps[currentStepIndex];
+            const isCompleted = currentGroupData.progress[currentStepIndex];
+            const completedCount = currentGroupData.progress.filter(Boolean).length;
+            const progressPercentage = (completedCount / challengeSteps.length) * 100;
+
+            let deliverablesHTML = '';
+            if (step.deliverables) {
+                const stepDeliverablesData = currentGroupData.deliverables?.[currentStepIndex] || {};
+                const formFieldsHTML = step.deliverables.map(d => {
+                    const value = stepDeliverablesData[d.id] || '';
+                    const inputElement = d.type === 'textarea'
+                        ? `<textarea id="${d.id}" data-id="${d.id}" class="form-input h-24" placeholder="${d.label}">${value}</textarea>`
+                        : `<input type="${d.type}" id="${d.id}" data-id="${d.id}" value="${value}" class="form-input" placeholder="${d.label}">`;
+                    return `<div class="mb-4"><label for="${d.id}" class="block text-gray-300 mb-2 font-semibold">${d.label}</label>${inputElement}</div>`;
+                }).join('');
+
+                deliverablesHTML = `
+                    <div class="mt-8 pt-6 border-t border-gray-600">
+                        <div class="flex justify-between items-center mb-4">
+                             <h3 class="text-xl font-bold text-white">Entregáveis</h3>
+                             <span id="save-status" class="text-sm text-gray-400"></span>
+                        </div>
+                        <form id="deliverables-form">${formFieldsHTML}</form>
+                    </div>`;
+            }
+
+            const slideWrapper = document.createElement('div');
+            slideWrapper.className = 'w-full max-w-5xl';
+            slideWrapper.innerHTML = `
+                <div class="mb-4">
+                    <div class="flex justify-between mb-1"><span class="text-base font-medium text-blue-400">Progresso do Desafio</span><span class="text-sm font-medium text-blue-400">${Math.round(progressPercentage)}%</span></div>
+                    <div class="w-full bg-gray-700 rounded-full h-2.5"><div class="bg-blue-600 h-2.5 rounded-full transition-all duration-500" style="width: ${progressPercentage}%"></div></div>
+                </div>
+                <div class="slide-content bg-gray-800 border border-gray-700 rounded-2xl p-8 shadow-2xl">
+                    <div class="text-center mb-6"><p class="text-blue-400 font-semibold">Etapa ${currentStepIndex + 1}</p><h2 class="text-3xl font-bold text-white mt-1">${step.title}</h2></div>
+                    <div class="text-gray-300 text-lg leading-relaxed min-h-[50px]">${step.content}</div>
+                    ${deliverablesHTML}
+                    <div class="mt-8 pt-6 border-t border-gray-600 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div class="flex items-center"><input type="checkbox" id="step-checkbox" class="complete-checkbox h-6 w-6 rounded bg-gray-600 border-gray-500 text-blue-500 focus:ring-blue-600" ${isCompleted ? 'checked' : ''}><label for="step-checkbox" class="ml-3 text-lg text-white">Marcar como concluído</label></div>
+                        <div class="flex items-center gap-4"><button id="prev-step-btn" class="nav-button bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg transition">Anterior</button><button id="next-step-btn" class="nav-button bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition">Próximo</button></div>
+                    </div>
+                </div>
+                <div id="step-navigation-bar" class="mt-8 flex justify-center gap-2 md:gap-4"></div>`;
+            DOM.slidesContainer.appendChild(slideWrapper);
+
+            renderStepNavigationBar();
+            setupSlideEventListeners();
+            checkDeliverablesCompletion();
+        }
+
+        function setupSlideEventListeners() {
+            document.getElementById('prev-step-btn').addEventListener('click', () => { if (currentStepIndex > 0) { currentStepIndex--; renderCurrentSlide(); } });
+            document.getElementById('next-step-btn').addEventListener('click', () => {
+                if (currentStepIndex < challengeSteps.length - 1) { currentStepIndex++; renderCurrentSlide(); } 
+                else { alert('Parabéns! Vocês concluíram todas as etapas do desafio!'); }
+            });
+            document.getElementById('step-checkbox').addEventListener('change', (e) => updateProgress(currentStepIndex, e.target.checked));
+
+            const form = document.getElementById('deliverables-form');
+            if (form) {
+                form.addEventListener('input', handleFormInput);
+            }
+        }
+
+        function checkDeliverablesCompletion() {
+            const checkbox = document.getElementById('step-checkbox');
+            if (!checkbox) return;
+
+            const step = challengeSteps[currentStepIndex];
+            const deliverablesData = currentGroupData.deliverables?.[currentStepIndex] || {};
+            let allFilled = true;
+            if (step.deliverables) {
+                for (const d of step.deliverables) {
+                    if (d.required && (!deliverablesData[d.id] || deliverablesData[d.id].trim() === '')) {
+                        allFilled = false;
+                        break;
+                    }
+                }
+            }
+            checkbox.disabled = !allFilled;
+        }
+
+        function handleFormInput(e) {
+            clearTimeout(saveTimeout);
+            const statusEl = document.getElementById('save-status');
+            statusEl.textContent = 'Salvando...';
+
+            saveTimeout = setTimeout(async () => {
+                const form = e.currentTarget;
+                const dataToSave = {};
+                form.querySelectorAll('input, textarea').forEach(input => {
+                    dataToSave[input.dataset.id] = input.value;
+                });
+
+                if (!currentGroupData.deliverables) currentGroupData.deliverables = {};
+                currentGroupData.deliverables[currentStepIndex] = dataToSave;
+                
+                const groupDocRef = doc(db, "groups", currentGroupId);
+                try {
+                    await updateDoc(groupDocRef, { deliverables: currentGroupData.deliverables });
+                    statusEl.textContent = 'Salvo!';
+                    checkDeliverablesCompletion();
+                } catch (error) {
+                    statusEl.textContent = 'Erro ao salvar.';
+                    console.error("Erro ao salvar entregáveis:", error);
+                }
+            }, 1000);
+        }
+
+        function renderStepNavigationBar() {
+            const navBar = document.getElementById('step-navigation-bar');
+            navBar.innerHTML = '';
+            challengeSteps.forEach((step, index) => {
+                const isCompleted = currentGroupData.progress[index];
+                const isCurrent = index === currentStepIndex;
+                const isLocked = !isCompleted && index > 0 && !currentGroupData.progress[index - 1];
+                const navItem = document.createElement('button');
+                navItem.className = `step-nav-item flex-1 max-w-[150px] p-3 rounded-lg text-white font-bold flex flex-col items-center justify-center text-center`;
+                let icon = '';
+                if (isCompleted) {
+                    navItem.classList.add('bg-green-600');
+                    icon = `<svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+                } else if (isCurrent) {
+                    navItem.classList.add('bg-blue-600', 'ring-2', 'ring-blue-400');
+                } else if (isLocked) {
+                    navItem.classList.add('bg-gray-700', 'opacity-60', 'locked');
+                    icon = `<svg class="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path></svg>`;
+                } else {
+                    navItem.classList.add('bg-gray-600');
+                }
+                navItem.innerHTML = `${icon}<span class="text-xs leading-tight">${step.title}</span>`;
+                navItem.disabled = isLocked;
+                if (!isLocked) {
+                    navItem.addEventListener('click', () => { currentStepIndex = index; renderCurrentSlide(); });
+                }
+                navBar.appendChild(navItem);
+            });
+        }
+        
+        async function updateProgress(stepIndex, isCompleted) {
+            currentGroupData.progress[stepIndex] = isCompleted;
+            const groupDocRef = doc(db, "groups", currentGroupId);
+            try {
+                await updateDoc(groupDocRef, { progress: currentGroupData.progress });
+                renderCurrentSlide();
+            } catch (error) { console.error("Erro ao atualizar progresso: ", error); }
+        }
+
+        async function loadGroupAndStart(groupId) {
+            const groupDocRef = doc(db, "groups", groupId);
+            const groupDoc = await getDoc(groupDocRef);
+            if (groupDoc.exists()) {
+                currentGroupId = groupId;
+                currentGroupData = groupDoc.data();
+                DOM.groupNameDisplay.textContent = `Startup: ${currentGroupData.name}`;
+                currentStepIndex = currentGroupData.progress.findIndex(p => p === false);
+                if (currentStepIndex === -1) currentStepIndex = 0;
+                switchView('slidesContainer');
+                renderCurrentSlide();
+            } else { logout(); }
+        }
+
+        async function handleUserSession(studentId, studentData) {
+            currentStudentId = studentId;
+            currentStudentData = studentData;
+            localStorage.setItem('studentId', studentId);
+            DOM.userNameEl.textContent = studentData.name.split(' ')[0];
+            DOM.userInfo.classList.remove('hidden');
+            toggleModal(DOM.authModal, false);
+
+            if (studentData.email === ADMIN_EMAIL) {
+                await loadAdminView();
+                return;
+            }
+
+            if (studentData.groupId) {
+                await loadGroupAndStart(studentData.groupId);
+            } else {
+                const q = query(groupsCollection, where("pendingInvites", "array-contains", studentData.email));
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    const groupDoc = querySnapshot.docs[0];
+                    const groupId = groupDoc.id;
+                    await runTransaction(db, async (transaction) => {
+                        const groupRef = doc(db, "groups", groupId);
+                        const studentRef = doc(db, "students", studentId);
+                        const freshGroupDoc = await transaction.get(groupRef);
+                        if (!freshGroupDoc.exists()) { throw "Error: Group does not exist!"; }
+                        const groupData = freshGroupDoc.data();
+                        const newPendingInvites = groupData.pendingInvites.filter(email => email !== studentData.email);
+                        const newMembers = [...groupData.members, { studentId, email: studentData.email, name: studentData.name }];
+                        transaction.update(groupRef, { pendingInvites: newPendingInvites, members: newMembers });
+                        transaction.update(studentRef, { groupId: groupId });
+                    });
+                    await loadGroupAndStart(groupId);
+                } else {
+                    switchView('groupCreationContainer');
+                }
+            }
+        }
+
+        async function loginOrRegister(name, email) {
+            DOM.authSubmitBtn.disabled = true;
+            DOM.authMessage.textContent = "Verificando...";
+            const q = query(studentsCollection, where("email", "==", email));
+            try {
+                const querySnapshot = await getDocs(q);
+                if (querySnapshot.empty) {
+                    if (!name && email !== ADMIN_EMAIL) { DOM.authMessage.textContent = "Nome é obrigatório."; return; }
+                    const newStudent = { name: email === ADMIN_EMAIL ? 'Admin' : name, email, groupId: null };
+                    const docRef = await addDoc(studentsCollection, newStudent);
+                    await handleUserSession(docRef.id, newStudent);
+                } else {
+                    await handleUserSession(querySnapshot.docs[0].id, querySnapshot.docs[0].data());
+                }
+            } catch (error) {
+                console.error("Erro no login/cadastro: ", error);
+                DOM.authMessage.textContent = "Ocorreu um erro.";
+            } finally {
+                DOM.authSubmitBtn.disabled = false;
+            }
+        }
+
+        function logout() {
+            [currentStudentId, currentStudentData, currentGroupId, currentGroupData] = [null, null, null, null];
+            localStorage.removeItem('studentId');
+            DOM.userInfo.classList.add('hidden');
+            switchView('login');
+        }
+
+        async function checkSession() {
+            const studentId = localStorage.getItem('studentId');
+            if (studentId) {
+                const studentDoc = await getDoc(doc(db, "students", studentId));
+                if (studentDoc.exists()) { await handleUserSession(studentId, studentDoc.data()); } 
+                else { logout(); }
+            } else {
+                switchView('login');
+            }
+        }
+        
+        function createMemberInput() {
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-2';
+            div.innerHTML = `<input type="email" required class="w-full bg-gray-600 border-gray-500 rounded-lg px-3 py-2 text-white" placeholder="email.colega@exemplo.com"><button type="button" class="remove-member-btn text-red-500 hover:text-red-400 p-1 rounded-full text-2xl font-bold">&times;</button>`;
+            div.querySelector('.remove-member-btn').onclick = () => { div.remove(); updateAddMemberButtonState(); };
+            DOM.memberInputsContainer.appendChild(div);
+            updateAddMemberButtonState();
+        }
+
+        function updateAddMemberButtonState() {
+            DOM.addMemberBtn.disabled = DOM.memberInputsContainer.children.length >= 4;
+        }
+
+        async function loadAdminView() {
+            switchView('adminDashboard');
+            DOM.groupNameDisplay.textContent = "Modo Administrador";
+            const querySnapshot = await getDocs(groupsCollection);
+            const groups = [];
+            querySnapshot.forEach(doc => groups.push({ id: doc.id, ...doc.data() }));
+            renderAdminDashboard(groups);
+        }
+
+        function renderAdminDashboard(groups) {
+            DOM.adminGroupsList.innerHTML = '';
+            groups.forEach(group => {
+                const completedCount = group.progress.filter(Boolean).length;
+                const progressPercentage = (completedCount / challengeSteps.length) * 100;
+                const card = document.createElement('div');
+                card.className = 'bg-gray-800 p-6 rounded-lg shadow-lg cursor-pointer hover:bg-gray-700 transition';
+                card.innerHTML = `
+                    <h3 class="text-xl font-bold text-white">${group.name}</h3>
+                    <p class="text-sm text-gray-400 mb-4">Líder: ${group.members[0].name}</p>
+                    <div class="w-full bg-gray-600 rounded-full h-2.5 mb-1">
+                        <div class="bg-blue-600 h-2.5 rounded-full" style="width: ${progressPercentage}%"></div>
+                    </div>
+                    <p class="text-right text-sm text-gray-300">${Math.round(progressPercentage)}% concluído</p>
+                `;
+                card.addEventListener('click', () => showGroupDetails(group));
+                DOM.adminGroupsList.appendChild(card);
+            });
+        }
+
+        function showGroupDetails(group) {
+            DOM.modalGroupName.textContent = `Detalhes da Startup: ${group.name}`;
+            let contentHTML = '<div class="space-y-6">';
+            
+            // Members
+            contentHTML += '<div><h4 class="text-lg font-semibold text-blue-400 mb-2">Integrantes</h4><ul class="list-disc list-inside text-gray-300">';
+            group.members.forEach(member => {
+                contentHTML += `<li>${member.name} (${member.email})</li>`;
+            });
+            contentHTML += '</ul></div>';
+            
+            // Deliverables
+            contentHTML += '<div><h4 class="text-lg font-semibold text-blue-400 mb-2">Entregas</h4><div class="space-y-4">';
+            challengeSteps.forEach((step, index) => {
+                if (step.deliverables) {
+                    contentHTML += `<div class="bg-gray-700 p-4 rounded-lg"><p class="font-bold text-white">${step.title}</p>`;
+                    const deliverablesData = group.deliverables?.[index] || {};
+                    let hasData = false;
+                    step.deliverables.forEach(d => {
+                        const value = deliverablesData[d.id];
+                        if (value) {
+                            hasData = true;
+                            contentHTML += `<p class="text-sm text-gray-400 mt-1">${d.label}: <span class="text-gray-200">${value}</span></p>`;
+                        }
+                    });
+                    if (!hasData) {
+                        contentHTML += '<p class="text-sm text-gray-500 mt-1">Nenhuma entrega para esta etapa ainda.</p>';
+                    }
+                    contentHTML += '</div>';
+                }
+            });
+            contentHTML += '</div></div>';
+            
+            contentHTML += '</div>';
+            DOM.modalContentContainer.innerHTML = contentHTML;
+            toggleModal(DOM.groupDetailsModal, true);
+        }
+
+        DOM.addMemberBtn.addEventListener('click', createMemberInput);
+
+        DOM.groupCreationForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const startupName = e.target['startup-name'].value.trim();
+            const memberEmails = [...DOM.memberInputsContainer.querySelectorAll('input[type="email"]')]
+                .map(input => input.value.trim().toLowerCase()).filter(Boolean);
+            if (1 + memberEmails.length < 3 || 1 + memberEmails.length > 5) { DOM.groupMessage.textContent = "O grupo deve ter de 3 a 5 membros."; return; }
+            if (new Set(memberEmails).size !== memberEmails.length) { DOM.groupMessage.textContent = "Não adicione e-mails repetidos."; return; }
+            DOM.groupMessage.textContent = "";
+
+            try {
+                const newGroup = {
+                    name: startupName,
+                    leaderId: currentStudentId,
+                    members: [{ studentId: currentStudentId, email: currentStudentData.email, name: currentStudentData.name }],
+                    pendingInvites: memberEmails,
+                    progress: Array(challengeSteps.length).fill(false),
+                    deliverables: {}
+                };
+                const groupDocRef = await addDoc(groupsCollection, newGroup);
+                await updateDoc(doc(db, "students", currentStudentId), { groupId: groupDocRef.id });
+                currentStudentData.groupId = groupDocRef.id;
+                await loadGroupAndStart(groupDocRef.id);
+            } catch (error) {
+                console.error("Erro ao criar grupo:", error);
+                DOM.groupMessage.textContent = "Não foi possível criar o grupo.";
+            }
+        });
+
+        DOM.startBtn.addEventListener('click', () => currentStudentId ? handleUserSession(currentStudentId, currentStudentData) : toggleModal(DOM.authModal, true));
+        DOM.logoutBtn.addEventListener('click', logout);
+        DOM.closeDetailsModalBtn.addEventListener('click', () => toggleModal(DOM.groupDetailsModal, false));
+        DOM.closeAuthModalBtn.addEventListener('click', () => toggleModal(DOM.authModal, false));
+        DOM.authForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            loginOrRegister(e.target.name.value.trim(), e.target.email.value.trim().toLowerCase());
+        });
+
+        // --- Inicialização ---
+        createMemberInput();
+        createMemberInput();
+        checkSession();
+    </script>
+</body>
+</html>
