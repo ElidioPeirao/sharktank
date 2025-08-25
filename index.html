@@ -452,25 +452,25 @@
         function handleFormInput(e) {
             clearTimeout(saveTimeout);
             const statusEl = document.getElementById('save-status');
-            statusEl.textContent = 'Salvando...';
+            if (statusEl) statusEl.textContent = 'Salvando...';
 
             saveTimeout = setTimeout(async () => {
-                const form = e.currentTarget;
+                const form = document.getElementById('deliverables-form');
+                if (!form) return;
+
                 const dataToSave = {};
                 form.querySelectorAll('input, textarea').forEach(input => {
                     dataToSave[input.dataset.id] = input.value;
                 });
-
-                if (!currentGroupData.deliverables) currentGroupData.deliverables = {};
-                currentGroupData.deliverables[currentStepIndex] = dataToSave;
                 
                 const groupDocRef = doc(db, "groups", currentGroupId);
                 try {
                     await updateDoc(groupDocRef, { [`deliverables.${currentStepIndex}`]: dataToSave });
-                    statusEl.textContent = 'Salvo!';
-                    checkDeliverablesCompletion();
+                    const currentStatusEl = document.getElementById('save-status');
+                    if (currentStatusEl) currentStatusEl.textContent = 'Salvo!';
                 } catch (error) {
-                    statusEl.textContent = 'Erro ao salvar.';
+                    const currentStatusEl = document.getElementById('save-status');
+                    if (currentStatusEl) currentStatusEl.textContent = 'Erro ao salvar.';
                     console.error("Erro ao salvar entregáveis:", error);
                 }
             }, 1000);
@@ -507,9 +507,11 @@
         }
         
         async function updateProgress(stepIndex, isCompleted) {
+            const newProgress = [...currentGroupData.progress];
+            newProgress[stepIndex] = isCompleted;
             const groupDocRef = doc(db, "groups", currentGroupId);
             try {
-                await updateDoc(groupDocRef, { [`progress.${stepIndex}`]: isCompleted });
+                await updateDoc(groupDocRef, { progress: newProgress });
             } catch (error) { console.error("Erro ao atualizar progresso: ", error); }
         }
 
